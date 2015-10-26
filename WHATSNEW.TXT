@@ -1,0 +1,68 @@
+Version 2.1 (Madrid, 27th October 2015)
+Changes:
+* None
+Source code published in Github by Carlos Sánchez. I have been unable to contact Alexander Katz, the same way I guess he was unable to contact Cebrián and myself when he took care of the tool (our e-mails were already outdated by that time, the same way his address is outdated right now)
+
+
+Version 2.1  (Kiev, 27th February 2003)
+Changes:
+* Corrected TAKEOUT action
+
+Version 2.0 (Kiev, 26th October 2002)
+Changes:
+* Msiprint corrections
+* Graphic shade command changed
+
+New features:
++ Quill (versions A or C) snapshots are also recognized.
+
+Version 1.1 (Kiev, 25th January 2002)
+
+Changes:
+* More misprint corrections.
+* In vocabulary output word code and type divide by space.
+* Repaired some bugs in .Z80 support module. More accurate memory allocation.
+* Snapshot types recognized by file extension, not by size.
+* While printing control codes (ESCC) in messages/locations their parameters
+  are not processed as printable codes.
+* In General data: number of used character sets and database compression 
+  mode are printed always.
+
+
+New features:
++ New command line option to set snapshot type -s.
++ New command line option -e - expands Basic tokens to their text (according to
+  Basic interpreter mode and database compression).
++ In General data: version of PAW database, snapshot type, ZX Spectrum memory 
+  model and Basic interpreter mode).
++ If not all pages described in database are present in snapshot, line 
+  'Pages missing' is printed.
++ Export of startup snapshot screen to tape image.
++ Options -i and -o may be replaces by te filenames themselves.
++ Options without parameter may by combined in one, i.e. -ag instead of -a -e .
++ Win32 executable added.
+-------------
+
+Version 1.0 (Kiev, 15th January 2002)
+
+Changes:
+* Some misprints corrected.
+
+New features:
++ 128K support for .SNA and .Z80 snapshots.
++ .Z80 versions 1.45 and 3.05 supported in compressed and uncompressed form.
++ Export of location graphics (pictures and attributes).
++ Export of character sets and user defined graphics/shades.
++ Export of full database to .TAP tape image for loading it in PAW.
++ Added command line options -c -g -t to support new features.
++ In General data: number of used character sets 
+  and database compression mode. (if options -a and -c are used).
+-------------
+
+Version 0.1 Beta (Madrid, 19th January 1998)
+
+Original version written by Jose Luis Cebrian and Carlos Sánchez (C code by Ce´brián, Pascal version and
+Z80 support by Sánchez)
+
+Extracts PAW Database (text only) from ZX Spectrum snapshots:
+.SP (48k) .SNA(48k) .Z80 (48k v2.01 and v3.0).
