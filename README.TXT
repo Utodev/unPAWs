@@ -32,7 +32,3 @@
      Any bug  report  or  suggestion could be sent to Github's bug tracker.
      
 
-  LICENSE
-
-     This software is freeware, also the source code is free and  you can use it when you want
- 
