@@ -9,6 +9,8 @@
     
   The code  has been  compiled  with Borland Pascal 7.0  (MS-DOS executable) and Delphi 5.5 (Win32 executable). It may probably be compiled easily using Freepascal currently.
 
+  Update: on April 2016 it has been compiled with free pascal (fpc 2.6.4) for Windows without any problem.
+
   INPUT
 
      The input must be any spectrum game made  with PAWS, in any  of this file formats:
