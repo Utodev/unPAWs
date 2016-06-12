@@ -14,7 +14,7 @@ uses
 (***************************************************************************)
 (*                                                                         *)
 (*  Professional Adventure Writing System extractor.                       *)
-(*  Original vesion: Jose Luis Cebri†n PagÅe                               *)
+(*  Original vesion: Jose Luis CebriÔøΩn PagÔøΩe                               *)
 (*  Pascal version : Carlos Sanchez (csg@iberpoint.net)                    *)
 (*  128K and graphics support: Alexander Katz (sasha@kats.pp.kiev.ua)      *)
 (*                                                                         *)
@@ -398,7 +398,7 @@ BEGIN
 END;
 
 
-FUNCTION Abreviation(c:Integer) : String;
+FUNCTION Abbreviation(c:Integer) : String;
 VAR Offs: Word;
     S:String;
     oldpage: byte;
@@ -419,7 +419,7 @@ BEGIN
                                          Inc(Offs);
                                END;
   S := S + Char(Spectrum^[Offs] AND 127);
-  Abreviation:= S;
+  Abbreviation:= S;
   if m128k then  SetPage(oldpage);
 END;
 
@@ -522,7 +522,7 @@ BEGIN
             if (ColorCodes=0) and (XPos=31) and (QuillVersion<>0) then Begin Write(FOut,' ');XPos:=0; End
             else Inc(XPos);
            end
-   ELSE IF (C>164) AND compressed THEN Put_String(Abreviation(c))
+   ELSE IF (C>164) AND compressed THEN Put_String(Abbreviation(c))
    ELSE IF ExpandTokens and ((c>164) or basic128 and (c>162)) THEN Put_Token(c)
    ELSE begin Write(FOut,'{',c,'}');
           if c=8 then begin LastPrintedChar:=c; Dec(Xpos);end
@@ -1453,7 +1453,7 @@ BEGIN (* main *)
     WriteLn(FOut,'Compression data');
     WriteLn(FOut,'----------------');
     FOR I:=164 TO 254 DO
-        WriteLn(FOut,'Compression ',I:2,': ',Abreviation(I));
+        WriteLn(FOut,'Compression ',I:2,': ',Abbreviation(I));
     WriteLn(FOut);
    END;
   if m128k then SetPage(0);
