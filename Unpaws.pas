@@ -1,15 +1,6 @@
- PROGRAM UnPAWs;
-{$IFDEF WIN32}
- {$APPTYPE CONSOLE}
-{$ELSE}
-{$ENDIF}
+PROGRAM UnPAWs;
 uses
-{$IFDEF WIN32}
-  SysUtils,
-{$ELSE}
-  Strings, WinDos,
-{$ENDIF}
-  Z80LOAD;
+  SysUtils, Strings, Dos, Z80Load;
 
 (***************************************************************************)
 (*                                                                         *)
@@ -31,7 +22,7 @@ uses
 
 CONST Version = '2.1';
       Copyright='(c) 2002,2003 Alexander Katz';
-      Product = {$IFDEF WIN32}'UNPAWS32'{$ELSE}'UNPAWS'{$ENDIF};
+      Product = 'UNPAWS';
       MAXTVOC=6;
 
 
@@ -439,11 +430,8 @@ BEGIN
  VocPtr:=OffVoc;
  if v_type>=0 then { PAW & Quill.C}
  begin
-   {$IFDEF WIN32}
     SetLength(Voc,5);
-   {$ELSE}
-    Voc[0]:=#5;
-   {$ENDIF}
+    //Voc[0]:=#5;
    WHILE Peek(VocPtr)<>0 do
     BEGIN
      IF (Peek(vocptr+5) = Num) AND (Peek(vocptr+6) = v_type) THEN
@@ -462,11 +450,8 @@ BEGIN
  end
  else
  begin { Quill.A}
-   {$IFDEF WIN32}
     SetLength(Voc,4);
-   {$ELSE}
-    Voc[0]:=#4;
-   {$ENDIF}
+//    Voc[0]:=#4;
    WHILE Peek(VocPtr)<>0 do
     BEGIN
      IF Peek(vocptr+4) = Num THEN
@@ -825,16 +810,15 @@ BEGIN
  Halt;
 END;
 
+
 PROCEDURE CheckParameters;
 VAR I,J:Byte;
     opt,parm:String;
     badoption:boolean;
-{$IFNDEF WIN32}
-    Path: array[0..fsPathName] of Char;
-    Dir: array[0..fsDirectory] of Char;
-    Name: array[0..fsFileName] of Char;
-    Ext: array[0..fsExtension] of Char;
-{$ENDIF}
+//    Path: array[0..fsPathName] of Char;
+//    Dir: array[0..fsDirectory] of Char;
+//    Name: array[0..fsFileName] of Char;
+//    Ext: array[0..fsExtension] of Char;
 BEGIN
  IF ParamCount=0 THEN Syntax;
 
@@ -881,15 +865,12 @@ BEGIN
  IF (SnapType<>'') and (SnapType<>'SNA') and (SnapType<>'SP') and (SnapType<>'Z80') THEN badoption:=true;
  IF badoption THEN InputFileName:='';
  IF InputFileName='' THEN Syntax;
-{$IFDEF WIN32}
  InputName:=ChangeFileExt(ExtractFileName(InputFileName),'');
  InputExt:=UpSt(ExtractFileExt(InputFileName));
-{$ELSE}
- StrPCopy(Path,InputFileName);
- FileSplit(Path,Dir, Name,Ext);
- InputName:=StrPas(Name);
- InputExt:=UpSt(StrPas(Ext));
-{$ENDIF}
+// StrPCopy(Path,InputFileName);
+ //FileSplit(Path,Dir, Name,Ext);
+ //InputName:=StrPas(Name);
+ //InputExt:=UpSt(StrPas(Ext));
 END;
 
 

@@ -1,3 +1,9 @@
+Version 2.1 (Madrid, feb 6th, 2017)
+Changes:
+* Source modified to be compatible with fpc (freepascal), as GNU Pascal is quite rarely used today
+* Makefile added
+
+
 Version 2.1 (Madrid, 27th October 2015)
 Changes:
 * None
