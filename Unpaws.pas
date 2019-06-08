@@ -1,6 +1,8 @@
 PROGRAM UnPAWs;
+{$mode objfpc}
+
 uses
-  SysUtils, Strings, Dos, Z80Load;
+  SysUtils, Strings, strutils, Dos, Z80Load;
 
 (***************************************************************************)
 (*                                                                         *)
@@ -19,7 +21,6 @@ uses
 (***************************************************************************)
 
 {$I-,S-,R-}
-
 CONST Version = '2.1';
       Copyright='(c) 2002,2003 Alexander Katz';
       Product = 'UNPAWS';
@@ -59,6 +60,14 @@ VAR Spectrum : ^SpectrumMemory;
     GraphCount: Integer;
     tempint: Integer;
     XPos: Word;
+    AuxStr: String;
+    OBJSection : Array[byte] of String;
+    OBJLabels : Array[byte] of String;
+    TempStr : String;
+    OutDisabled: Boolean;
+    MTX : Array[byte] of String;
+    STX : Array[byte] of String;
+
 
 TYPE COND= Record
             Condact:String[20];
@@ -182,7 +191,7 @@ CONST tVocs:ARRAY [0..6] OF String=(
 'Noun',
 'Adjective',
 'Preposition',
-'Conjunction',
+'Conjugation',
 'Pronoun');
 
 CONST Tokens:ARRAY [163..255] of String=(
@@ -325,6 +334,21 @@ BEGIN
  PeekNeg := Spectrum^[c] XOR 255;
 END;
 
+Procedure PseudoWrite(var F:Text; S: String; Ln:Boolean=false);
+BEGIN
+ TempStr := TempStr + S;
+ if not OutDisabled THEN 
+ BEGIN
+  IF Ln then WriteLn(F, S) ELSE  Write(F, S);
+ END;
+END;
+
+procedure PseudoWriteLn(Var F:text; S:String);
+begin
+ 
+ PseudoWrite(F, S, true);
+END; 
+
 Procedure SetPage(num: byte);
 begin
  move(Pages[num]^,Spectrum^[49152],16384);
@@ -345,6 +369,11 @@ BEGIN
  IF Option THEN Select:=S1
            ELSE Select:=S2;
 END;
+
+FUNCTION SelectStr(S1, S2: String):String;
+BEGIN
+ IF S1<>'' THEN Result := S1 ELSE Result:=S2;
+END; 
 
 FUNCTION HEX(value:Byte):String;
 var
@@ -388,6 +417,13 @@ BEGIN
  IntToStr2 := S
 END;
 
+FUNCTION CleanString(S:String):String;
+BEGIN
+ S:= ReplaceStr(S, '^',  '#n');
+ S:= ReplaceStr(S, '{19}',  '');
+
+ Result := S;
+END;
 
 FUNCTION Abreviation(c:Integer) : String;
 VAR Offs: Word;
@@ -485,11 +521,11 @@ PROCEDURE Put_CharCode(c:Byte);
 BEGIN
  IF ColorCodes>0 THEN
     BEGIN
-         Write(FOut,'{',c,'}');
+      //   Write(FOut,'{',c,'}');
          Dec(ColorCodes);
          exit;
     END;
-   IF (c=7)and (QuillVersion=0) or (c=13) THEN begin Write(FOut,'^');if(c=13) then XPos:=0;End;
+   IF (c=7)and (QuillVersion=0) or (c=13) THEN begin PseudoWrite(FOut,'#n');if(c=13) then XPos:=0;End;
    IF (c>15) and (c<22) THEN ColorCodes:=1
    ELSE IF (c=22) or (c=23) THEN ColorCodes:=2
    ELSE  ColorCodes:=0;
@@ -498,24 +534,28 @@ BEGIN
     if (XPos mod 16)=0 then Inc(XPos);
     while (XPos mod 16)<>0 Do Inc(XPos);
     if XPos=32 Then XPos:=0;
-    Write(FOut,'{6}');
+    //PseudoWrite(FOut,'{6}');
    END
    ELSE IF(c=22) or (c=23) then Put_CharCode(32)
    ELSE IF (c>31) AND (c<>Byte('^')) AND (c<127) AND (c<>96)
       THEN begin
-            Write(FOut,Chr(c)); LastPrintedChar:=c;
-            if (ColorCodes=0) and (XPos=31) and (QuillVersion<>0) then Begin Write(FOut,' ');XPos:=0; End
+            PseudoWrite(FOut,Chr(c)); 
+            LastPrintedChar:=c;
+            if (ColorCodes=0) and (XPos=31) and (QuillVersion<>0) then Begin PseudoWrite(FOut,' ');XPos:=0; End
             else Inc(XPos);
            end
+   ELSE IF (c=Byte('^')) THEN Put_String('#n')
    ELSE IF (C>164) AND compressed THEN Put_String(Abreviation(c))
    ELSE IF ExpandTokens and ((c>164) or basic128 and (c>162)) THEN Put_Token(c)
-   ELSE begin Write(FOut,'{',c,'}');
+   ELSE begin 
+           //PseudoWrite(FOut,'{'+intToStr(c)+'}');
           if c=8 then begin LastPrintedChar:=c; Dec(Xpos);end
-          else if (ColorCodes=0) and (XPos=31) and (QuillVersion<>0) then Begin Write(FOut,' ');XPos:=0; End
+          else if (ColorCodes=0) and (XPos=31) and (QuillVersion<>0) then Begin PseudoWrite(FOut,' ');XPos:=0; End
           else if not c in[6,13,16,17,18,19,20,21,22,23] then inc(XPos);
         end
 
 END;
+
 
 
 PROCEDURE Put_String(S : String);
@@ -524,6 +564,8 @@ BEGIN
  FOR I:=1 TO Length(S) DO
    Put_CharCode(Byte(S[I]));
 END;
+
+
 
 PROCEDURE Put_Messages(Title:String; Offtab:Word; Start:Integer; Finish:Integer);
 VAR I:Integer;
@@ -537,10 +579,12 @@ BEGIN
  if OffTab=0 then exit;
  Offs:=OffTab;
  XPos:=0;
+ 
  WHILE (I<=Finish) DO
   BEGIN
    if not plain then Offs:=DPeek(OffTab+2*(i-start));
-   WriteLn(FOut,Title,' ',i:3,'  ');
+   PseudoWrite(FOut,'/'+IntToStr(i)+' "');
+   TempStr := '';
    Inc(I);
    ColorCodes:=0;
    LastPrintedChar:=32;
@@ -551,10 +595,16 @@ BEGIN
      Inc(Offs);
      Put_CharCode(c);
     END;
-   Inc(Offs);
-   WriteLn(FOut);
-   WriteLn(FOut);
-   XPos:=0;
+    Inc(Offs);
+    if Title = 'Message' THEN MTX[i-1] := CleanString(TempStr);
+    if Title = 'System Message' THEN STX[i-1] := CleanString(TempStr);
+    if Title = 'Object' THEN 
+    BEGIN
+     OBJLabels[i-1] := 'o' + ReplaceStr(ReplaceStr(ReplaceStr(CleanString(TempStr),' ','_'),'-',''),'.','_');
+     if OBJLabels[i-1] = 'o' then OBJLabels[i-1] := 'oObject' + intToStr(i-1);
+    END; 
+    PseudoWriteLn(FOut,'"');
+    XPos:=0;
    if not plain and (Offs>=OffTab) then break;
   END;
 END;
@@ -1061,64 +1111,15 @@ BEGIN (* main *)
   Rewrite(FOut);
   WriteLn(FOut);
 
-  (* System colors *)
-  if QuillVersion=0 then
-       WriteLn(FOut,'PAW Database : ',InputFileName)
-  else
-      WriteLn(FOut,'Quill Database : ',InputFileName);
+  OutDisabled := false;
+  WriteLn(FOut,'/CTL');
+  WriteLn(FOut,'_');
   WriteLn(FOut);
-  WriteLn(FOut,'Extracted by ',Product,' v'+ version);
-  WriteLn(FOut);
-  WriteLn('Checking general data...');
-  WriteLn(FOut,'General data');
-  WriteLn(FOut,'------------');
-  WriteLn(FOut);
-  WriteLn(FOut,'Locations                   ', NumLoc:10);
-  WriteLn(FOut,'Objects                     ', NumObj:10);
-  if QuillVersion<>0 then
-       WriteLn(FOut,'Conveyable objects          ', Peek(MainAttr+13):10);
-  WriteLn(FOut,'Messages                    ', NumMsg:10);
-  WriteLn(FOut,'System messages             ', NumSys:10);
-  if QuillVersion=0 then
-       WriteLn(FOut,'Processes                   ', NumPro:10);
-  Writeln(FOut,'Character sets              ', NumFonts:10);
-  if QuillVersion=0 then
-       Writeln(FOut,'Default character set       ', Peek(MainTop+281):10);
-  if (QuillVersion<>0) and (OffGraph<>0) then
-       Writeln(FOut,'Graphics Count              ', GraphCount:10);
-  WriteLn(FOut,'Default ink color           ', Peek(MainAttr+1):10) ;
-  WriteLn(FOut,'Default paper color         ', Peek(MainAttr+3):10) ;
-  WriteLn(FOut,'Default flash state         ', Peek(MainAttr+5):10) ;
-  WriteLn(FOut,'Default bright state        ', Peek(MainAttr+7):10) ;
-  WriteLn(FOut,'Default inverse state       ', Peek(MainAttr+9):10) ;
-  WriteLn(FOut,'Default over state          ', Peek(MainAttr+11):10) ;
-  WriteLn(FOut,'Default border color        ', Peek(MainAttr+12):10) ;
-  if (QuillVersion<>0) and (OffGraph<>0) then
-        Writeln(FOut,'The Illustrator used');
-  if (QuillVersion<>0) and patched then
-        Writeln(FOut,'The Patch used');
-  if QuillVersion<>0 then
-        Writeln(FOut,'Database version            ', Select(QuillVersion=1,'A','C'):10)
-  else if Peek(65527)>31 then
-        Writeln(FOut,'Database version            ', Chr(Peek(65527)):10)
-  else
-        Writeln(FOut,'Database version            ', Peek(65527):10);
-  Writeln(FOut, 'Database ', Select(compressed,'','not '),'compressed');
-  WriteLn(FOut,'Snapshot type     ',
-  (SnapType+Select(m128k,' 128K',' 48K')+' Basic'+Select(Basic128, '128','48')):20) ;
-  if (QuillVersion=0) and (PagesUsed>1) and not m128k then
-     Writeln(FOut,'Pages missing               ', (PagesUsed-1):10);
-  WriteLn(FOut);
-
-  WriteLn(FOut,'--------------------------------------------------------------------------');
-  WriteLn(FOut);
-
-
+  
   WriteLn('Extracting vocabulary');
   (* Vocabulary *)
-  WriteLn(FOut,'Vocabulary');
-  WriteLn(FOut,'----------');
-
+  WriteLn(FOut,'/VOC');
+  
   if QuillVersion=0 then
   begin
      vocptr := DPeek(65509);
@@ -1126,6 +1127,7 @@ BEGIN (* main *)
 
      WHILE (vocptr < 65509) AND  (Peek(vocptr)<>0) DO
      BEGIN
+     if type_voc(Peek(vocptr+6))<>'RESERVED' then
       WriteLn(FOut,char(PeekNeg(vocptr)),char(PeekNeg(vocptr+1)),
              char(PeekNeg(vocptr+2)),char(PeekNeg(vocptr+3)),char(PeekNeg(vocptr+4)),
              Peek(vocptr+5):5,' ',type_voc(Peek(vocptr+6)));
@@ -1147,12 +1149,22 @@ BEGIN (* main *)
   end;
   WriteLn(FOut);
 
-  WriteLn(FOut,'--------------------------------------------------------------------------');
+  
   WriteLn(FOut);
+
+
+  
+  WriteLn(FOut);
+  (* System messages *)
+  WriteLn(FOut,'/STX');
+  WriteLn('Extracting ',NumSys,' system message(s)');
+  Put_Messages ('System Message', OffSys, -1, numsys-1);
+  WriteLn(FOut);
+
+
   (* Messages *)
-  WriteLn(FOut,'MESSAGES');
-  WriteLn(FOut,'--------');
-  WriteLn('Extracting ',NumMsg, ' message(s)');
+  WriteLn(FOut,'/MTX');
+  OutDisabled := true;
   numcurr:=0;
   for i:=0 to 7 do
   if Mess[i]<>0 then
@@ -1166,23 +1178,20 @@ BEGIN (* main *)
    end;
   if m128k then SetPage(0);
   {OffMsg:=DPeek(65503);}
+  WriteLn(FOut); 
+  OutDisabled := false;
+
+  WriteLn(FOut);
+  (* Object names *)
+  WriteLn(FOut,'/OTX');
+  WriteLn('Extracting ',NumObj,' object(s)');
+  Put_Messages ('Object',OffObj , 0, NumObj-1);
   WriteLn(FOut);
 
 
-  WriteLn(FOut,'--------------------------------------------------------------------------');
-  WriteLn(FOut);
-  (* System messages *)
-  WriteLn(FOut,'SYSTEM MESSAGES');
-  WriteLn(FOut,'---------------') ;
-  WriteLn('Extracting ',NumSys,' system message(s)');
-  Put_Messages ('System Message', OffSys, -1, numsys-1);
-  WriteLn(FOut);
-
-  WriteLn(FOut,'--------------------------------------------------------------------------');
   WriteLn(FOut);
   (* Location descriptions *)
-  WriteLn(FOut,'LOCATIONS');
-  WriteLn(FOut,'---------');
+  WriteLn(FOut,'/LTX');
   WriteLn('Extracting ',NumLoc,' location(s)');
   numcurr:=0;
   for i:=0 to 7 do
@@ -1199,11 +1208,10 @@ BEGIN (* main *)
   {OffLoc:=DPeek(65501);}
   WriteLn(FOut);
 
-  WriteLn(FOut,'--------------------------------------------------------------------------');
+  
   WriteLn(FOut);
   (* Conections *)
-  WriteLn(FOut,'CONNECTIONS');
-  WriteLn(FOut,'-----------') ;
+  WriteLn(FOut,'/CON');
   WriteLn('Extracting connections');
   numcurr:=0;
   for j:=0 to 7 do if Locs[j]>0 then
@@ -1214,6 +1222,7 @@ BEGIN (* main *)
    else offcon:=DPeek(MainAttr+30);
    FOR i:=numcurr TO Locs[j]-1 DO
     BEGIN
+     WriteLn(FOut,'/',i,'  ');
      conptr := DPeek(offcon+2 * (i-numcurr)) ;
      n := 0 ;
      WHILE Peek(conptr) <> 255 DO
@@ -1223,36 +1232,28 @@ BEGIN (* main *)
          S := Vocabula(Peek(conptr), 0);
          if S='' then S := Vocabula (Peek(conptr), 2) ;
         end;
-        if n=0 THEN Write(FOut,'Location ',i:3,':  ')
-               ELSE Write(FOut,'               ') ;
+        
         n := n+ 1;
         if S<>'' then WriteLn(FOut,S,' ',Peek(conptr+1))
                  else WriteLn(FOut,Peek(conptr),' ',Peek(conptr+1));
         conptr :=conptr+ 2 ;
        END;
-       IF n<>0 THEN WriteLn(FOut);
+       //IF n<>0 THEN WriteLn(FOut);
     END;
     numcurr:=Locs[j];
   END;
   if m128k then SetPage(0);
   {OffCon := DPeek(65507) ;}
-  WriteLn(FOut,'--------------------------------------------------------------------------');
-  WriteLn(FOut);
-  (* Object names *)
-  WriteLn(FOut,'OBJECT NAMES');
-  WriteLn(FOut,'------------');
-  WriteLn('Extracting ',NumObj,' object(s)');
-  Put_Messages ('Object',OffObj , 0, NumObj-1);
-  WriteLn(FOut);
+  
+
+  
 
   if QuillVersion<>1 then
   begin
-    WriteLn(FOut,'--------------------------------------------------------------------------');
+    
     WriteLn(FOut);
     (* Object words *)
     WriteLn('Extracting object words');
-    WriteLn(FOut,'OBJECT WORDS');
-    WriteLn(FOut,'------------') ;
     if QuillVersion=0 then offwobj := DPeek(65513)
     else offwobj:=DPeek(MainAttr+36);
     FOR I:=0 TO NumObj-1 DO
@@ -1260,80 +1261,94 @@ BEGIN (* main *)
       if QuillVersion=0 then
       begin
         S := Vocabula(Peek(offwobj+2*i), 2) ;
-        if S<>'' THEN S:=S + ' ' + IntToStr(Peek(offwobj+2*i));
         if (Peek(offwobj+2*i) = 255) THEN S:=S+'_    ' ;
-        Write(FOut,'Object ',i:3,'    ',S,' ') ;
+        OBJSection[i] := S + ' ';
+        
         S := Vocabula(Peek(offwobj+2*i+1), 3) ;
-        if S<>'' THEN S := S + ' '+IntToStr( Peek(offwobj+2*i+1));
-        if (Peek(offwobj+2*i+1) = 255) then S := S+'_    ';
-        WriteLn(FOut,S) ;
+        if (S='') and (Peek(offwobj+2*i+1) = 255) then S := S+'_    ';
+        if (S='') and (Peek(offwobj+2*i+1) <>255) THEN S := S + '['+IntToStr( Peek(offwobj+2*i+1));
+        OBJSection[i] := OBJSection[i] + S;
+        //WriteLn(FOut,S) ;
       end
       else
       begin
-        S := Vocabula(Peek(offwobj+i), -1) ;
-        if (S<>'') and (Peek(offwobj+i)<>255) THEN S:=S + ' ' + IntToStr(Peek(offwobj+i));
-        if (Peek(offwobj+i) = 255) and (S='') THEN S:=S+'_' ;
-        WriteLn(FOut,'Object ',i:3,'    ',S) ;
+        S := Vocabula(Peek(offwobj+i), 2) ;
+        if (S='') and (Peek(offwobj+i) <>255) THEN S:=S + ' ' + IntToStr(Peek(offwobj+i));
+        if (S='') and (Peek(offwobj+i) = 255) THEN S:=S+'_' ;
+        OBJSection[i] := S;
+        //WriteLn(FOut,'Object ',i:3,'    ',S) ;
       end
     END;
     WriteLn(FOut);
   end;
 
-  WriteLn(FOut,'--------------------------------------------------------------------------');
+  
   WriteLn(FOut);
   (* Objects "Initially at" *)
   WriteLn('Extracting Initially At');
-  WriteLn(FOut,'INITIALLY AT');
-  WriteLn(FOut,'------------');
   if QuillVersion=0 then OffLObj := DPeek(65511)
   else if QuillVersion=1 then OffLObj:=DPeek(MainAttr+31)
   else OffLObj:=DPeek(MainAttr+34);
+  S:= '';
   for i:=0 TO NumObj-1 DO
+  begin
     CASE (Peek(offlobj+i)) OF
-     252:WriteLn(FOut,'Object ',i:3,'    NC');
-     253:WriteLn(FOut,'Object ',i:3,'    W');
-     254:WriteLn(FOut,'Object ',i:3,'    C')
-     ELSE WriteLn(FOut,'Object ',i:3,'    ',Peek(offlobj+i));
+     253: S:= 'WORN      ';
+     254: S:= 'CARRIED   ';
+     ELSE S := IntToStr(Peek(offlobj+i));
     END;
-  WriteLn(FOut);
+    OBJSection[i] := padRight(S,12) + ' % ' + OBJSection[i];
+  end;
+
 
   if QuillVersion=0 then
   begin
-    WriteLn(FOut,'--------------------------------------------------------------------------');
+    
     WriteLn(FOut);
     (* Objects weight and type *)
     WriteLn('Extracting objects weight and type');
-    WriteLn(FOut,'OBJECT WEIGHT AND TYPE');
-    WriteLn(FOut,'----------------------') ;
     offxobj := DPeek(65515) ;
     for I:=0 TO NumObj-1 DO
-       WriteLn(FOut,'Object ',i:3,':  weights ',
-         Peek(offxobj+i) AND 63:3,'    ',
-          Select((Peek(offxobj+i) AND 64)<>0,'C','          '),' ',
-           Select((Peek(offxobj+i) AND 128)<>0,'W','      '));
-    WriteLn(FOut);
+    BEGIN
+         //WriteLn(FOut,'Object ',i:3,':  weights ',  Peek(offxobj+i) AND 63:3,'    ',  Select((Peek(offxobj+i) AND 64)<>0,'C','          '),' ', Select((Peek(offxobj+i) AND 128)<>0,'W','      '));
+         S := ' ' + padRight(IntToStr(Peek(offxobj+i) AND 63),4) +' ';  
+         S := S + Select((Peek(offxobj+i) AND 64)<>0,'Y ','_ ');
+         S := S + Select((Peek(offxobj+i) AND 128)<>0,'Y ','_ ');
+         S := S +  '  _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ';
+         OBJSection[i] := ReplaceStr(OBJSection[i], '%', S);
+    END;
+    //WriteLn(FOut);
   end;
+
+  WriteLn(FOut, '');
+  WriteLn(FOut, '');
+  WriteLn(FOut, '');
+  for I:=0 TO NumObj-1 DO WriteLn(FOut, '#define ', OBJLabels[i],' ',i);
+  WriteLn(FOut, '/OBJ');
+  WriteLn(FOut, ';n    InitiallyAt  Wei   C W   Flags                            Noun  Adjective');
+  WriteLn(FOut);
+  for I:=0 TO NumObj-1 DO
+   WriteLn(FOut, '/', PadRight(IntToStr(i),3), '  ',OBJSection[i]);
+
 
   (* Processes *)
   WriteLn('Extracting Process/Response tables');
   if QuillVersion<>0 Then NumPro:=2;
   FOR P:=0 TO NumPro-1 DO
   BEGIN
-   WriteLn(FOut,'--------------------------------------------------------------------------');
+   
    WriteLn(FOut);
    IF (p=0) THEN BEGIN
-                  WriteLn(FOut,'RESPONSE TABLE');
-                  WriteLn(FOut,'--------------')
+                  WriteLn(FOut,'/PRO ', p:3);
                  END
             ELSE BEGIN
                   if QuillVersion=0 then
                   begin
-                   WriteLn(FOut,'PROCESS ',p:3);
-                   WriteLn(FOut,'-----------');
+                   WriteLn(FOut,'/PRO ',p:3);
                   end
                   else
                   begin
-                   WriteLn(FOut,'PROCESS TABLE');
+                   WriteLn(FOut,'/PROCESS TABLE');
                    WriteLn(FOut,'-------------');
                   end
                  END;
@@ -1353,8 +1368,9 @@ BEGIN (* main *)
           END
           else
           begin
+            
             S := Vocabula (Peek(proptr), 0) ;
-            if (Peek(proptr) = 1) then S := S + '*    '
+            if (Peek(proptr) = 1) then S := S + '_    '
             else
             if (Peek(proptr) = 255) then S := S + '_    ';
             if S='' THEN
@@ -1364,6 +1380,7 @@ BEGIN (* main *)
                 if S = '' THEN S := IntToStr(Peek(proptr)) ;
               END;
           end;
+          S := '> '+ S;
           Write(FOut,S,Select(QuillVersion=0,' ','  ')) ;
           proptr := proptr + 1 ;
           if QuillVersion<>0 then
@@ -1374,7 +1391,7 @@ BEGIN (* main *)
           else
           begin
             S := Vocabula (Peek(proptr), 2) ;
-            if (Peek(proptr) = 1) then S := S + '*    '
+            if (Peek(proptr) = 1) then S := S + '_    '
             else
             if (Peek(proptr) = 255) then S := S + '_    ';
             if S = '' THEN
@@ -1399,16 +1416,34 @@ BEGIN (* main *)
           end;
           while Peek(resptr) <> 255 do
           BEGIN
-            if (n<>0) then Write(FOut,'                 ') ;
+            if (n<>0) then Write(FOut,'                   ') ;
             n := n + 1;
             opcode:=MapQuillCondActToPAW(Peek(resptr),opcodetype);
             if (opcode <= 107) THEN
               BEGIN
-                  Write(FOut,Justify(condacts[opcode].condact,12));
-                  if (condacts[opcode].params > 0) THEN
-                      Write(FOut,' ',Peek(resptr+1):3);
-                  if (condacts[opcode].params > 1) THEN
-                      Write(FOut,' ',Peek(resptr+2):3);
+                  AuxStr := condacts[opcode].condact;
+                  IF AuxStr='DESC' THEN AuxSTR :=  'RESTART';
+                  IF AuxStr='INVEN' THEN AuxSTR := 'SYSMESS 9'#13#10'                   LISTAT  CARRIED'#13#10'                   SYSMESS 10'#13#10'                   LISTAT  WORN'#13#10'                   DONE';
+                  IF AuxStr='TURNS' THEN AuxSTR := '; REVIEW, WAS "TURNS"';
+                  IF AuxStr='TIMEOUT' THEN AuxSTR := '; REVIEW, WAS "TIMEOUT"';
+                  IF AuxStr='SAVE' THEN AuxSTR := 'SAVE 0';
+                  IF AuxStr='LOAD' THEN AuxSTR := 'LOAD 0';
+                  IF AuxStr='PARSE' THEN AuxSTR := 'PARSE 0';
+                  IF AuxStr='PROMPT' THEN AuxSTR := 'LET 42';
+                  Write(FOut,Justify(AuxStr,12));
+                  if (condacts[opcode].params > 0) THEN 
+                                                   BEGIN
+                                                      IF (AuxStr='MESSAGE') OR (AuxSTR='MES') THEN Write(FOut,' "',MTX[Peek(resptr+1)]:3,'"') 
+                                                      ELSE IF (AuxStr='SYSMESS') THEN Write(FOut,' ',Peek(resptr+1):3,' ; ', STX[Peek(resptr+1)]) 
+                                                      ELSE IF (AuxStr='CARRIED') OR (AuxSTR='DROP') OR (AuxSTR='WORN') OR (AuxSTR='PLACE') OR (AuxSTR='ISAT') OR (AuxSTR='CREATE') OR (AuxSTR='DESTROY') OR (AuxSTR='PRESENT') OR (AuxSTR='ISNOTAT') THEN Write(FOut,' ',OBJLabels[Peek(resptr+1)]:3) 
+                                                      ELSE IF (AuxStr='ADVERB') THEN Write(FOut,' ',SelectStr(Vocabula(Peek(resptr+1),1), IntToStr(Peek(resptr+1))):3) 
+                                                      ELSE IF (AuxStr='NOUN2') THEN Write(FOut,' ',SelectStr(Vocabula(Peek(resptr+1),2), IntToStr(Peek(resptr+1))):3) 
+                                                      ELSE IF (AuxStr='ADJECT1') THEN Write(FOut,' ',SelectStr(Vocabula(Peek(resptr+1),3), IntToStr(Peek(resptr+1))):3) 
+                                                      ELSE IF (AuxStr='ADJECT2') THEN Write(FOut,' ',SelectStr(Vocabula(Peek(resptr+1),3), IntToStr(Peek(resptr+1))):3) 
+                                                      ELSE IF (AuxStr='PREP') THEN Write(FOut,' ',SelectStr(Vocabula(Peek(resptr+1),4), IntToStr(Peek(resptr+1))):3) 
+                                                      ELSE Write(FOut,' ',Peek(resptr+1));
+                                                  END;
+                  if (condacts[opcode].params > 1) THEN Write(FOut,' ',Peek(resptr+2));
                   resptr :=resptr + condacts[opcode].params;
               END;
               resptr := resptr + 1 ;
@@ -1424,10 +1459,11 @@ BEGIN (* main *)
       WriteLn(FOut);
   END;
 
+WriteLn(FOut, '/END');
 
    IF AbrevOn and compressed THEN
    BEGIN
-    WriteLn(FOut,'--------------------------------------------------------------------------');
+    
     WriteLn(FOut);
     (* Compression data *)
     WriteLn('Extracting compression data');
@@ -1441,7 +1477,7 @@ BEGIN (* main *)
 
   if GraphOn and (OffGraph<>0) then
   BEGIN
-    WriteLn(FOut,'--------------------------------------------------------------------------');
+    
     WriteLn(FOut);
     (* Graphics *)
     WriteLn(FOut,'GRAPHICS DATA');
@@ -1468,7 +1504,7 @@ BEGIN (* main *)
 
   IF FontsOn THEN
    BEGIN
-    WriteLn(FOut,'--------------------------------------------------------------------------');
+    
     WriteLn(FOut);
     (* Character Sets data *)
     WriteLn('Extracting Character Sets data');
