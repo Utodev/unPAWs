@@ -52,7 +52,7 @@ VAR Spectrum : ^SpectrumMemory;
     M128K,Basic128: Boolean;
     snappage,tmpb, ColorCodes: Byte;
     LastPrintedChar:Byte;
-    S:String;
+    S, S2:String;
     QuillVersion: Word;
     Patched: Boolean;
     opcodetype: Boolean;
@@ -63,10 +63,10 @@ VAR Spectrum : ^SpectrumMemory;
     AuxStr: String;
     OBJSection : Array[byte] of String;
     OBJLabels : Array[byte] of String;
-    TempStr : String;
+    TempStr : AnsiString;
     OutDisabled: Boolean;
-    MTX : Array[byte] of String;
-    STX : Array[byte] of String;
+    MTX : Array[byte] of AnsiString;
+    STX : Array[byte] of AnsiString;
 
 
 TYPE COND= Record
@@ -417,7 +417,7 @@ BEGIN
  IntToStr2 := S
 END;
 
-FUNCTION CleanString(S:String):String;
+FUNCTION CleanString(S:AnsiString):AnsiString;
 BEGIN
  S:= ReplaceStr(S, '^',  '#n');
  S:= ReplaceStr(S, '{19}',  '');
@@ -1339,12 +1339,12 @@ BEGIN (* main *)
    
    WriteLn(FOut);
    IF (p=0) THEN BEGIN
-                  WriteLn(FOut,'/PRO ', p:3);
+                  WriteLn(FOut,'/PRO ', p);
                  END
             ELSE BEGIN
                   if QuillVersion=0 then
                   begin
-                   WriteLn(FOut,'/PRO ',p:3);
+                   WriteLn(FOut,'/PRO ',p);
                   end
                   else
                   begin
@@ -1381,27 +1381,29 @@ BEGIN (* main *)
               END;
           end;
           S := '> '+ S;
-          Write(FOut,S,Select(QuillVersion=0,' ','  ')) ;
+          //Write(FOut,S,Select(QuillVersion=0,' ','  ')) ;
           proptr := proptr + 1 ;
           if QuillVersion<>0 then
           BEGIN
-            S:=Vocabula(Peek(proptr),-1);
-            if S = '' THEN S := IntToStr(Peek(proptr)) ;
+            S2:=Vocabula(Peek(proptr),-1);
+            if S2 = '' THEN S := IntToStr(Peek(proptr)) ;
           END
           else
           begin
-            S := Vocabula (Peek(proptr), 2) ;
-            if (Peek(proptr) = 1) then S := S + '_    '
+            S2 := Vocabula (Peek(proptr), 2) ;
+            if (Peek(proptr) = 1) then S2 := S2 + '_    '
             else
-            if (Peek(proptr) = 255) then S := S + '_    ';
-            if S = '' THEN
+            if (Peek(proptr) = 255) then S2 := S2 + '_    ';
+            if S2 = '' THEN
              BEGIN
                 if (Peek(proptr) < 20) then
-                    S := Vocabula(Peek(proptr), 2);
-                if S='' THEN S:=IntToStr(Peek(proptr)) ;
+                    S2 := Vocabula(Peek(proptr), 2);
+                if S2='' THEN S:=IntToStr(Peek(proptr)) ;
              END;
           end;
-          Write(FOut,S,'      ',Select(QuillVersion=0,'',' ')) ;
+          S := S + ' ' + S2;
+          IF ((P=1) OR  (P=2)) AND (S<>'> _     _    ') THEN S := '; UNPAWS note: it was: ' + S + #13#10 + '> _    _    ';
+          Write(FOut,S,'       ',Select(QuillVersion=0,'',' ')) ;
           proptr := proptr +1 ;
 
           resptr := DPeek(proptr) ;
@@ -1422,14 +1424,17 @@ BEGIN (* main *)
             if (opcode <= 107) THEN
               BEGIN
                   AuxStr := condacts[opcode].condact;
-                  IF AuxStr='DESC' THEN AuxSTR :=  'RESTART';
+                  IF AuxStr='DESC' THEN AuxSTR :=  'RESTART; UNPAWS note: it was DESC';
                   IF AuxStr='INVEN' THEN AuxSTR := 'SYSMESS 9'#13#10'                   LISTAT  CARRIED'#13#10'                   SYSMESS 10'#13#10'                   LISTAT  WORN'#13#10'                   DONE';
-                  IF AuxStr='TURNS' THEN AuxSTR := '; REVIEW, WAS "TURNS"';
-                  IF AuxStr='TIMEOUT' THEN AuxSTR := '; REVIEW, WAS "TIMEOUT"';
-                  IF AuxStr='SAVE' THEN AuxSTR := 'SAVE 0';
-                  IF AuxStr='LOAD' THEN AuxSTR := 'LOAD 0';
-                  IF AuxStr='PARSE' THEN AuxSTR := 'PARSE 0';
-                  IF AuxStr='PROMPT' THEN AuxSTR := 'LET 42';
+                  IF AuxStr='TURNS' THEN AuxSTR := '; UNPAWS note: it was: "TURNS"';
+                  IF AuxStr='TIMEOUT' THEN AuxSTR := '; UNPAWS note: it was: "TIMEOUT"';
+                  IF AuxStr='CHARSET' THEN AuxSTR := '; UNPAWS note: it was: "TIMEOUT"';
+                  IF AuxStr='MODE' THEN AuxSTR := '; UNPAWS note: it was: "TIMEOUT"';
+                  IF AuxStr='GRAPHIC' THEN AuxSTR := '; UNPAWS note: it was: "TIMEOUT"';
+                  IF AuxStr='SAVE' THEN AuxSTR := 'SAVE 0 ; UNPAWS note: it was just SAVE';
+                  IF AuxStr='LOAD' THEN AuxSTR := 'LOAD 0 ; UNPAWS note: it was just LOAD';;
+                  IF AuxStr='PARSE' THEN AuxSTR := 'PARSE 0 ; UNPAWS note: it was just PARSE';
+                  IF AuxStr='PROMPT' THEN AuxSTR := '; UNPAWS note: it was just PROMPT below'#13#10'            LET 42';
                   Write(FOut,Justify(AuxStr,12));
                   if (condacts[opcode].params > 0) THEN 
                                                    BEGIN
