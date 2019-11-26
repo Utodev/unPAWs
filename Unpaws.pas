@@ -21,8 +21,8 @@ uses
 (***************************************************************************)
 
 {$I-,S-,R-}
-CONST Version = '2.1';
-      Copyright='(c) 2002,2003 Alexander Katz';
+CONST Version = '2.2';
+      Copyright='(c) 1995,2019 Jose Luis Cebrián, Alexander Katz, Carlos Sánchez';
       Product = 'UNPAWS';
       MAXTVOC=6;
 
@@ -334,7 +334,7 @@ BEGIN
  PeekNeg := Spectrum^[c] XOR 255;
 END;
 
-Procedure PseudoWrite(var F:Text; S: String; Ln:Boolean=false);
+Procedure PseudoWrite(var F:Text; S: AnsiString; Ln:Boolean=false);
 BEGIN
  TempStr := TempStr + S;
  if not OutDisabled THEN 
@@ -343,7 +343,7 @@ BEGIN
  END;
 END;
 
-procedure PseudoWriteLn(Var F:text; S:String);
+procedure PseudoWriteLn(Var F:text; S:AnsiString);
 begin
  
  PseudoWrite(F, S, true);
@@ -944,6 +944,7 @@ BEGIN (* main *)
          BEGIN
           Seek(F,27);
           BlockRead(F,Spectrum^[16384],49152);
+          Close(F);
          END ELSE
  IF (SnapType='SNA') AND ((FSize=131103) or (Fsize=147487)) THEN  {SNA 128}
          BEGIN
@@ -967,14 +968,18 @@ BEGIN (* main *)
           move(Spectrum^[32768],Pages[2]^,16384);
           move(Spectrum^[49152],Pages[snappage]^,16384);
           SetPage(0);
+          Close(F);          
          END ELSE
  IF (SnapType='SP') AND (FSize=49190) THEN { SP 48 }
          BEGIN
           Seek(F,38);
           BlockRead(F,Spectrum^[16384],49152);
           SnapType:='SP';
+          Close(F);
          END
-  ELSE IF SnapType='Z80' THEN CASE LoadZ80(InputFileName,Spectrum^, Pages) OF
+  ELSE IF SnapType='Z80' THEN BEGIN
+                                Close(F);
+                                CASE LoadZ80(InputFileName,Spectrum^, Pages) OF
                                              1: begin
                                                  m128k:=true;
                                                  move(Pages[5]^,Spectrum^[16384],16384);
@@ -984,9 +989,10 @@ BEGIN (* main *)
                                              2:Error(5);
                                              3:Error(6);
                                             END
+                             END
   ELSE Error(2);
- Close(F);
 
+ 
  (* Analyze *)
 
  QuillVersion:=0;

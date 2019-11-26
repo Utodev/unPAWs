@@ -103,6 +103,7 @@ BEGIN
  Assign(F,FileName);
  Reset(F,1);
  SnapLength:=FIleSize(F);
+
  if SnapLength<38 THEN BEGIN
                         LoadZ80:=2; (* Invalid file *)
                         Exit
