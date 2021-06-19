@@ -512,7 +512,7 @@ BEGIN
    ELSE begin Write(FOut,'{',c,'}');
           if c=8 then begin LastPrintedChar:=c; Dec(Xpos);end
           else if (ColorCodes=0) and (XPos=31) and (QuillVersion<>0) then Begin Write(FOut,' ');XPos:=0; End
-          else if not c in[6,13,16,17,18,19,20,21,22,23] then inc(XPos);
+          else if not (c in[6,13,16,17,18,19,20,21,22,23]) then inc(XPos);
         end
 
 END;
